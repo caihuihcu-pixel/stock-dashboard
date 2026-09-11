@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自选股技术面看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,500;0,700;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10141B;
+    --panel:#171C25;
+    --panel-2:#1D232E;
+    --line:#2A313D;
+    --text:#ECEFF3;
+    --muted:#8B93A1;
+    --gold:#D6A339;
+    --up:#E0484F;
+    --down:#35A776;
+    --warn:#E3B341;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    padding:32px 24px 80px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:22px;
+    margin-bottom:28px;
+  }
+  h1{
+    font-family:'Source Serif 4', serif;
+    font-style:italic;
+    font-weight:700;
+    font-size:34px;
+    margin:0 0 6px;
+    letter-spacing:0.2px;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:14px;
+    max-width:60ch;
+    line-height:1.6;
+  }
+  .meta{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--muted);
+    text-align:right;
+  }
+  .meta .dot{color:var(--gold);}
+
+  /* ---------- Empty state / loader ---------- */
+  .loader{
+    border:1px dashed var(--line);
+    border-radius:2px;
+    padding:56px 24px;
+    text-align:center;
+    color:var(--muted);
+  }
+  .loader strong{color:var(--text); font-weight:600;}
+  .filebtn{
+    display:inline-block;
+    margin-top:18px;
+    padding:10px 22px;
+    background:var(--gold);
+    color:#1A1400;
+    font-weight:600;
+    font-size:14px;
+    border-radius:2px;
+    cursor:pointer;
+    border:none;
+    font-family:'IBM Plex Sans', sans-serif;
+  }
+  .filebtn:hover{opacity:0.88;}
+  input[type=file]{display:none;}
+
+  /* ---------- Summary strip ---------- */
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .stat{
+    background:var(--panel);
+    padding:18px 20px;
+  }
+  .stat .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:28px;
+    font-weight:600;
+    line-height:1;
+  }
+  .stat .label{
+    margin-top:8px;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .stat.up .num{color:var(--up);}
+  .stat.down .num{color:var(--down);}
+  .stat.warn .num{color:var(--warn);}
+  .stat.gold .num{color:var(--gold);}
+
+  /* ---------- Controls ---------- */
+  .controls{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .controls input[type=text], .controls select{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:8px 12px;
+    font-size:13px;
+    font-family:'IBM Plex Sans', sans-serif;
+    border-radius:2px;
+  }
+  .controls input[type=text]{width:180px;}
+  .controls .spacer{flex:1;}
+  .controls .reload{
+    font-size:12px;
+    color:var(--muted);
+    text-decoration:underline;
+    cursor:pointer;
+    background:none;border:none;
+    font-family:'IBM Plex Sans', sans-serif;
+  }
+
+  /* ---------- Table ---------- */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  thead th{
+    text-align:left;
+    padding:10px 12px;
+    border-bottom:1px solid var(--line);
+    color:var(--muted);
+    font-weight:500;
+    font-size:12px;
+    cursor:pointer;
+    white-space:nowrap;
+    user-select:none;
+    position:relative;
+  }
+  thead th:hover{color:var(--text);}
+  thead th.active{color:var(--gold);}
+  th[data-tip]{border-bottom:1px dotted var(--muted);}
+  th[data-tip]::after{
+    content:attr(data-tip);
+    position:absolute;
+    top:calc(100% + 8px);
+    left:0;
+    z-index:20;
+    width:240px;
+    white-space:normal;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:400;
+    font-size:12px;
+    line-height:1.6;
+    padding:10px 12px;
+    border-radius:2px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.4);
+    opacity:0;
+    pointer-events:none;
+    transform:translateY(-4px);
+    transition:opacity 0.12s ease, transform 0.12s ease;
+  }
+  th[data-tip]:hover::after{
+    opacity:1;
+    transform:translateY(0);
+  }
+  th[data-tip]:nth-last-child(-n+4)::after{
+    left:auto;
+    right:0;
+  }
+  tbody td{
+    padding:11px 12px;
+    border-bottom:1px solid var(--line);
+    font-family:'IBM Plex Mono', monospace;
+    white-space:nowrap;
+  }
+  tbody td.name-cell{font-family:'IBM Plex Sans', sans-serif; font-weight:500;}
+  tbody tr{cursor:pointer;}
+  tbody tr:hover{background:var(--panel);}
+  .up{color:var(--up);}
+  .down{color:var(--down);}
+  .tag{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:12px;
+    padding:2px 8px;
+    border-radius:2px;
+    display:inline-block;
+  }
+  .tag.bull{background:rgba(224,72,79,0.15); color:var(--up);}
+  .tag.bear{background:rgba(53,167,118,0.15); color:var(--down);}
+  .tag.neutral{background:rgba(139,147,161,0.15); color:var(--muted);}
+  .tag.extreme{background:rgba(227,179,65,0.18); color:var(--warn);}
+  .dots span{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:3px; background:var(--line);}
+  .dots span.on{background:var(--gold);}
+
+  /* ---------- Detail panel ---------- */
+  .detail-row td{
+    background:var(--panel-2);
+    padding:0;
+  }
+  .detail{
+    padding:22px 26px 26px;
+    display:grid;
+    grid-template-columns:1.3fr 1fr;
+    gap:32px;
+  }
+  .detail h3{
+    font-family:'Source Serif 4', serif;
+    font-style:italic;
+    font-size:19px;
+    margin:0 0 14px;
+    font-weight:600;
+  }
+  .range-wrap{margin-bottom:20px;}
+  .range-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:11.5px;
+    color:var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    margin-bottom:6px;
+  }
+  .range-bar{
+    position:relative;
+    height:8px;
+    background:var(--line);
+    border-radius:4px;
+  }
+  .range-fill{
+    position:absolute; top:0; left:0; height:100%;
+    background:linear-gradient(90deg, var(--down), var(--gold), var(--up));
+    opacity:0.35;
+    border-radius:4px;
+  }
+  .marker{
+    position:absolute; top:-5px;
+    width:2px; height:18px;
+    background:var(--text);
+  }
+  .marker.ma{background:var(--muted);}
+  .marker.stop{background:var(--down); width:2px;}
+  .marker .mk-label{
+    position:absolute; top:-18px; left:50%; transform:translateX(-50%);
+    font-size:10px; font-family:'IBM Plex Mono', monospace; white-space:nowrap;
+    color:var(--muted);
+  }
+  .marker.current .mk-label{color:var(--gold); font-weight:600;}
+
+  .kv-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px 20px;
+    font-size:13px;
+  }
+  .kv-grid div{
+    display:flex; justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    padding-bottom:6px;
+  }
+  .kv-grid .k{color:var(--muted);}
+  .kv-grid .v{font-family:'IBM Plex Mono', monospace; font-weight:500;}
+
+  .score-detail{margin-top:6px;}
+  .score-item{
+    display:flex; align-items:center; gap:10px;
+    font-size:12.5px; color:var(--muted);
+    margin-bottom:6px;
+  }
+  .score-item .chip{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--line);
+  }
+  .score-item.on .chip{background:var(--gold);}
+  .score-item.on{color:var(--text);}
+
+  footer{
+    max-width:1180px;
+    margin:40px auto 0;
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.7;
+    border-top:1px solid var(--line);
+    padding-top:18px;
+  }
+
+  @media (max-width:800px){
+    .summary{grid-template-columns:repeat(2,1fr);}
+    .detail{grid-template-columns:1fr;}
+    table{font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>自选股技术面看板</h1>
+      <p>基于历史行情计算的均线、MACD、RSI 等技术指标客观统计，不构成投资建议，仅供参考。</p>
+    </div>
+    <div class="meta" id="metaBox"></div>
+  </header>
+
+  <div id="loaderBox" class="loader">
+    <div><strong>还没有加载数据</strong></div>
+    <div style="margin-top:8px;">运行 <code>python analyze_history.py</code> 后，选择生成的 <code>选股数据.json</code> 文件</div>
+    <label class="filebtn">选择数据文件<input type="file" id="fileInput" accept=".json"></label>
+  </div>
+
+  <div id="autoLoadingBox" class="loader" style="display:none;">
+    <div><strong>正在加载最新数据…</strong></div>
+  </div>
+
+  <div id="mainBox" style="display:none;">
+    <div class="summary" id="summaryBox"></div>
+
+    <div class="controls">
+      <input type="text" id="searchInput" placeholder="搜索股票名称/代码">
+      <select id="filterMa">
+        <option value="">均线排列：全部</option>
+      </select>
+      <select id="filterMacd">
+        <option value="">MACD：全部</option>
+      </select>
+      <select id="filterRsi">
+        <option value="">RSI区间：全部</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="reload" id="reloadBtn">重新选择文件</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr id="tableHead"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    说明：本页面所有指标基于公开技术分析公式，对历史价格做客观统计描述，不构成投资建议、不保证未来表现。
+    综合趋势评分统计"均线多头排列 / MACD偏多 / RSI处于中性区间 / 站上20日均线 / 20日跑赢沪深300"五项信号的成立数量，
+    分数越高代表当前技术面信号越集中偏多，仅供参考，不是买卖信号。止损参考价基于2倍ATR计算，是常见技术止损方法之一。
+  </footer>
+</div>
+
+<script>
+let RAW = [];
+
+function applyPayload(payload){
+  RAW = payload.数据 || [];
+  document.getElementById('metaBox').innerHTML =
+    `更新时间 <span class="dot">·</span> ${payload.生成时间}<br>股票数量 <span class="dot">·</span> ${payload.股票数量}`;
+  document.getElementById('loaderBox').style.display = 'none';
+  document.getElementById('autoLoadingBox').style.display = 'none';
+  document.getElementById('mainBox').style.display = 'block';
+  initFilters();
+  render();
+}
+
+// 页面打开时先尝试自动加载同目录下的 选股数据.json
+// 部署到 GitHub Pages 等网站上时，这一步会自动成功，不需要用户手动选择文件
+// 如果是本地直接双击打开(file://协议)，浏览器出于安全限制会拦截这种读取，
+// 此时会自动回退到"手动选择文件"的方式，不影响本地使用
+(function tryAutoLoad(){
+  document.getElementById('loaderBox').style.display = 'none';
+  document.getElementById('autoLoadingBox').style.display = 'block';
+  fetch(encodeURI('选股数据.json'), {cache:'no-store'})
+    .then(res => { if(!res.ok) throw new Error('not found'); return res.json(); })
+    .then(payload => applyPayload(payload))
+    .catch(() => {
+      document.getElementById('autoLoadingBox').style.display = 'none';
+      document.getElementById('loaderBox').style.display = 'block';
+    });
+})();
+
+const fileInput = document.getElementById('fileInput');
+const reloadBtn = document.getElementById('reloadBtn');
+fileInput.addEventListener('change', handleFile);
+reloadBtn.addEventListener('click', () => fileInput.click());
+
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const payload = JSON.parse(evt.target.result);
+      applyPayload(payload);
+    }catch(err){
+      alert('文件解析失败，请确认选择的是 analyze_history.py 生成的 选股数据.json');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+let sortKey = '综合排名';
+let sortAsc = true;
+
+const COLS = [
+  {key:'综合排名', label:'排名', tip:'按右侧"评分"结合5日涨跌幅排序得出的名次，只是本次结果的排序，不代表投资价值高低。'},
+  {key:'股票名称', label:'名称', name:true, tip:'股票名称与代码。'},
+  {key:'最新收盘', label:'最新价', tip:'该股最近一个交易日的收盘价。'},
+  {key:'5日涨跌幅%', label:'5日%', pct:true, tip:'最近5个交易日的累计涨跌幅，反映短期表现。'},
+  {key:'20日涨跌幅%', label:'20日%', pct:true, tip:'最近20个交易日（约1个月）的累计涨跌幅，反映中期表现。'},
+  {key:'60日涨跌幅%', label:'60日%', pct:true, tip:'最近60个交易日（约3个月）的累计涨跌幅，反映更长期的走势。'},
+  {key:'量能比(5日/前20日)', label:'量能比', tip:'近5日平均成交量 相比 之前20日平均成交量 的倍数。大于1说明最近成交更活跃，可能有资金关注度变化。'},
+  {key:'均线排列', label:'均线排列', tag:true, tip:'5/20/60日均线的排列方向。"多头排列"=短期均线在上、长期在下，通常视为上升趋势；"空头排列"相反，通常视为下降趋势；"震荡交织"则方向不明确。'},
+  {key:'MACD状态', label:'MACD', tag:true, tip:'基于MACD指标计算的趋势状态。"金叉"指标由弱转强的信号，"死叉"指标由强转弱的信号，是常用的趋势辅助判断工具之一。'},
+  {key:'RSI区间', label:'RSI', tag:true, tip:'14日相对强弱指标(RSI)所处区间。通常≥70视为"超买"（短期涨幅可能过快），≤30视为"超卖"（短期跌幅可能过快），其余为"中性"。'},
+  {key:'相对沪深300强弱%(20日)', label:'相对强弱%', pct:true, tip:'该股近20日涨跌幅 减去 沪深300指数同期涨跌幅。正数代表这只股票同期跑赢了大盘，负数代表跑输大盘。'},
+  {key:'综合趋势评分(0-5)', label:'评分', dots:true, tip:'0-5分，统计"均线多头排列 / MACD偏多 / RSI处于中性 / 站上20日均线 / 20日跑赢大盘"这5项信号是否成立。分数越高代表当前技术面信号越集中偏多，仅供参考，不是买卖建议。'},
+];
+
+function initFilters(){
+  const uniq = (k) => [...new Set(RAW.map(r=>r[k]).filter(Boolean))];
+  fillSelect('filterMa', uniq('均线排列'));
+  fillSelect('filterMacd', uniq('MACD状态'));
+  fillSelect('filterRsi', uniq('RSI区间'));
+
+  ['searchInput','filterMa','filterMacd','filterRsi'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', render);
+    document.getElementById(id).addEventListener('change', render);
+  });
+}
+function fillSelect(id, values){
+  const sel = document.getElementById(id);
+  values.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+function getFiltered(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const ma = document.getElementById('filterMa').value;
+  const macd = document.getElementById('filterMacd').value;
+  const rsi = document.getElementById('filterRsi').value;
+  return RAW.filter(r=>{
+    if(q && !(String(r.股票名称).toLowerCase().includes(q) || String(r.股票代码).includes(q))) return false;
+    if(ma && r.均线排列 !== ma) return false;
+    if(macd && r.MACD状态 !== macd) return false;
+    if(rsi && r.RSI区间 !== rsi) return false;
+    return true;
+  });
+}
+
+function renderSummary(){
+  const total = RAW.length;
+  const up = RAW.filter(r=>r['5日涨跌幅%']>0).length;
+  const down = RAW.filter(r=>r['5日涨跌幅%']<0).length;
+  const beatIndex = RAW.filter(r=>r['相对沪深300强弱%(20日)']>0).length;
+  const extreme = RAW.filter(r=>r.RSI区间==='超买区间'||r.RSI区间==='超卖区间').length;
+
+  const stats = [
+    {label:'股票总数', num:total, cls:'gold'},
+    {label:'5日上涨家数', num:up, cls:'up'},
+    {label:'5日下跌家数', num:down, cls:'down'},
+    {label:'20日跑赢沪深300', num:beatIndex, cls:'gold'},
+    {label:'RSI超买/超卖提醒', num:extreme, cls:'warn'},
+  ];
+  document.getElementById('summaryBox').innerHTML = stats.map(s=>`
+    <div class="stat ${s.cls}">
+      <div class="num">${s.num}</div>
+      <div class="label">${s.label}</div>
+    </div>`).join('');
+}
+
+function tagClass(val){
+  if(!val) return 'neutral';
+  if(val.includes('多头')||val.includes('金叉')) return 'bull';
+  if(val.includes('空头')||val.includes('死叉')) return 'bear';
+  if(val.includes('超买')||val.includes('超卖')) return 'extreme';
+  return 'neutral';
+}
+
+function renderTable(){
+  const head = document.getElementById('tableHead');
+  head.innerHTML = COLS.map(c=>`<th data-key="${c.key}" data-tip="${c.tip?c.tip.replace(/"/g,'&quot;'):''}" class="${c.key===sortKey?'active':''}">${c.label}${c.key===sortKey?(sortAsc?' ▲':' ▼'):''}</th>`).join('') + '<th></th>';
+  head.querySelectorAll('th[data-key]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.key;
+      if(sortKey===k) sortAsc = !sortAsc; else {sortKey=k; sortAsc=true;}
+      render();
+    });
+  });
+
+  let rows = getFiltered();
+  rows.sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(av==null) av = sortAsc ? Infinity : -Infinity;
+    if(bv==null) bv = sortAsc ? Infinity : -Infinity;
+    if(typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortAsc ? av-bv : bv-av;
+  });
+
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = COLS.map(c=>{
+      const val = r[c.key];
+      if(c.name) return `<td class="name-cell">${val}<br><span style="color:var(--muted);font-size:11px;">${r.股票代码}</span></td>`;
+      if(c.pct){
+        if(val==null) return `<td>-</td>`;
+        const cls = val>0?'up':(val<0?'down':'');
+        return `<td class="${cls}">${val>0?'+':''}${val}%</td>`;
+      }
+      if(c.tag) return `<td><span class="tag ${tagClass(val)}">${val||'-'}</span></td>`;
+      if(c.dots){
+        let dots='';
+        for(let i=0;i<5;i++) dots += `<span class="${i<val?'on':''}"></span>`;
+        return `<td><div class="dots">${dots}</div></td>`;
+      }
+      return `<td>${val==null?'-':val}</td>`;
+    }).join('') + '<td style="color:var(--muted);">▸</td>';
+
+    tr.addEventListener('click', ()=>toggleDetail(tr, r));
+    body.appendChild(tr);
+  });
+}
+
+function toggleDetail(tr, r){
+  const next = tr.nextElementSibling;
+  if(next && next.classList.contains('detail-row')){
+    next.remove();
+    return;
+  }
+  document.querySelectorAll('.detail-row').forEach(el=>el.remove());
+
+  const dtr = document.createElement('tr');
+  dtr.className = 'detail-row';
+  const td = document.createElement('td');
+  td.colSpan = COLS.length + 1;
+
+  const low = r['60日最低'], high = r['60日最高'], cur = r['最新收盘'];
+  const ma20 = r['20日均线值'], stop = r['止损参考价'];
+  const pos = (v) => high>low ? ((v-low)/(high-low)*100) : 50;
+
+  const scoreFactors = [
+    {label:'均线多头排列', on: r.均线排列==='多头排列'},
+    {label:'MACD偏多(金叉/多头持续)', on: r.MACD状态==='金叉(转多)'||r.MACD状态==='多头持续'},
+    {label:'RSI处于中性区间', on: r.RSI区间==='中性'},
+    {label:'站上20日均线', on: r.是否站上20日线==='是'},
+    {label:'20日跑赢沪深300', on: r['相对沪深300强弱%(20日)']>0},
+  ];
+
+  td.innerHTML = `
+    <div class="detail">
+      <div>
+        <h3>${r.股票名称} 价格区间位置（近60日）</h3>
+        <div class="range-wrap">
+          <div class="range-label"><span>${low}</span><span>${high}</span></div>
+          <div class="range-bar">
+            <div class="range-fill" style="width:100%"></div>
+            ${ma20!=null?`<div class="marker ma" style="left:${pos(ma20)}%"><span class="mk-label">MA20</span></div>`:''}
+            ${stop!=null?`<div class="marker stop" style="left:${pos(stop)}%"><span class="mk-label">止损参考</span></div>`:''}
+            <div class="marker current" style="left:${pos(cur)}%"><span class="mk-label">现价 ${cur}</span></div>
+          </div>
+        </div>
+        <div class="kv-grid">
+          <div><span class="k">乖离率(距20日线)</span><span class="v">${r['乖离率%(距20日线)']??'-'}%</span></div>
+          <div><span class="k">RSI(14)</span><span class="v">${r['RSI(14)']??'-'}</span></div>
+          <div><span class="k">量能比</span><span class="v">${r['量能比(5日/前20日)']??'-'}</span></div>
+          <div><span class="k">ATR止损参考幅度</span><span class="v">${r['ATR止损参考幅度%']??'-'}%</span></div>
+          <div><span class="k">60日涨跌幅</span><span class="v">${r['60日涨跌幅%']??'-'}%</span></div>
+          <div><span class="k">最新日期</span><span class="v">${r['最新日期']??'-'}</span></div>
+        </div>
+      </div>
+      <div>
+        <h3>综合评分构成</h3>
+        <div class="score-detail">
+          ${scoreFactors.map(f=>`
+            <div class="score-item ${f.on?'on':''}">
+              <span class="chip"></span><span>${f.label}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  dtr.appendChild(td);
+  tr.after(dtr);
+}
+
+function render(){
+  renderSummary();
+  renderTable();
+}
+</script>
+</body>
+</html>
