@@ -1,0 +1,42 @@
+name: 每日更新股票数据
+
+# 触发条件：
+# 1. 每个工作日北京时间15:30(收盘后)自动运行一次
+# 2. 也支持在GitHub网页上手动点击运行，方便你测试
+on:
+  schedule:
+    - cron: '30 7 * * 1-5'   # UTC时间7:30 = 北京时间15:30，周一到周五
+  workflow_dispatch: {}
+
+# 让这个自动化任务有权限把新数据提交回仓库
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 配置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖库
+        run: pip install -r requirements.txt
+
+      - name: 抓取历史行情数据
+        run: python fetch_history.py
+
+      - name: 计算技术指标并生成报表
+        run: python analyze_history.py
+
+      - name: 把最新数据提交回仓库
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add history_data 选股数据.json 分析报表.xlsx
+          git diff --cached --quiet && echo "数据没有变化，跳过提交" || git commit -m "自动更新股票数据 $(date +'%Y-%m-%d %H:%M')"
+          git push
