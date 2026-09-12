@@ -350,7 +350,7 @@
         <option value="">均线排列：全部</option>
       </select>
       <select id="filterMacd">
-        <option value="">MACD：全部</option>
+        <option value="">所属板块：全部</option>
       </select>
       <select id="filterRsi">
         <option value="">RSI区间：全部</option>
@@ -368,9 +368,9 @@
   </div>
 
   <footer>
-    说明：本页面所有指标基于公开技术分析公式，对历史价格做客观统计描述，不构成投资建议、不保证未来表现。
-    综合趋势评分统计"均线多头排列 / MACD偏多 / RSI处于中性区间 / 站上20日均线 / 20日跑赢沪深300"五项信号的成立数量，
-    分数越高代表当前技术面信号越集中偏多，仅供参考，不是买卖信号。止损参考价基于2倍ATR计算，是常见技术止损方法之一。
+    说明：本页面所有指标基于公开技术分析公式和规则打分计算，对历史价格做客观统计描述，不构成投资建议、不保证未来表现。
+    综合评分(0-100)是"趋势得分+量能得分+板块得分-风险扣分"换算而来的简化版多因子打分，未包含大盘环境与集合竞价两个模块，
+    分数越高代表当前技术面信号越集中偏多，不是上涨概率，也不是买卖信号。点击某一行可以看到具体触发了哪些加分/扣分项。
   </footer>
 </div>
 
@@ -428,24 +428,23 @@ let sortKey = '综合排名';
 let sortAsc = true;
 
 const COLS = [
-  {key:'综合排名', label:'排名', tip:'按右侧"评分"结合5日涨跌幅排序得出的名次，只是本次结果的排序，不代表投资价值高低。'},
+  {key:'综合排名', label:'排名', tip:'按右侧"综合评分"结合5日涨跌幅排序得出的名次，只是本次结果的排序，不代表投资价值高低。'},
   {key:'股票名称', label:'名称', name:true, tip:'股票名称与代码。'},
   {key:'最新收盘', label:'最新价', tip:'该股最近一个交易日的收盘价。'},
   {key:'5日涨跌幅%', label:'5日%', pct:true, tip:'最近5个交易日的累计涨跌幅，反映短期表现。'},
   {key:'20日涨跌幅%', label:'20日%', pct:true, tip:'最近20个交易日（约1个月）的累计涨跌幅，反映中期表现。'},
-  {key:'60日涨跌幅%', label:'60日%', pct:true, tip:'最近60个交易日（约3个月）的累计涨跌幅，反映更长期的走势。'},
-  {key:'量能比(5日/前20日)', label:'量能比', tip:'近5日平均成交量 相比 之前20日平均成交量 的倍数。大于1说明最近成交更活跃，可能有资金关注度变化。'},
   {key:'均线排列', label:'均线排列', tag:true, tip:'5/20/60日均线的排列方向。"多头排列"=短期均线在上、长期在下，通常视为上升趋势；"空头排列"相反，通常视为下降趋势；"震荡交织"则方向不明确。'},
-  {key:'MACD状态', label:'MACD', tag:true, tip:'基于MACD指标计算的趋势状态。"金叉"指标由弱转强的信号，"死叉"指标由强转弱的信号，是常用的趋势辅助判断工具之一。'},
   {key:'RSI区间', label:'RSI', tag:true, tip:'14日相对强弱指标(RSI)所处区间。通常≥70视为"超买"（短期涨幅可能过快），≤30视为"超卖"（短期跌幅可能过快），其余为"中性"。'},
+  {key:'所属板块', label:'所属板块', tip:'该股所属的申万行业分类。需要先运行 fetch_sector.py 抓取板块数据，否则显示为空。'},
+  {key:'板块5日涨跌幅%', label:'板块5日%', pct:true, tip:'该股所属行业板块指数最近5日的涨跌幅，用来判断板块整体是不是在走强。'},
   {key:'相对沪深300强弱%(20日)', label:'相对强弱%', pct:true, tip:'该股近20日涨跌幅 减去 沪深300指数同期涨跌幅。正数代表这只股票同期跑赢了大盘，负数代表跑输大盘。'},
-  {key:'综合趋势评分(0-5)', label:'评分', dots:true, tip:'0-5分，统计"均线多头排列 / MACD偏多 / RSI处于中性 / 站上20日均线 / 20日跑赢大盘"这5项信号是否成立。分数越高代表当前技术面信号越集中偏多，仅供参考，不是买卖建议。'},
+  {key:'综合评分(0-100)', label:'综合评分', score100:true, tip:'趋势得分+量能得分+板块得分-风险扣分，换算成0-100分。是简化版多因子打分，只覆盖个股趋势/量能/板块三块，不含大盘环境和竞价。分数高≠上涨概率高，仅供参考，不是买卖建议。'},
 ];
 
 function initFilters(){
   const uniq = (k) => [...new Set(RAW.map(r=>r[k]).filter(Boolean))];
   fillSelect('filterMa', uniq('均线排列'));
-  fillSelect('filterMacd', uniq('MACD状态'));
+  fillSelect('filterMacd', uniq('所属板块'));
   fillSelect('filterRsi', uniq('RSI区间'));
 
   ['searchInput','filterMa','filterMacd','filterRsi'].forEach(id=>{
@@ -465,12 +464,12 @@ function fillSelect(id, values){
 function getFiltered(){
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   const ma = document.getElementById('filterMa').value;
-  const macd = document.getElementById('filterMacd').value;
+  const sector = document.getElementById('filterMacd').value;
   const rsi = document.getElementById('filterRsi').value;
   return RAW.filter(r=>{
     if(q && !(String(r.股票名称).toLowerCase().includes(q) || String(r.股票代码).includes(q))) return false;
     if(ma && r.均线排列 !== ma) return false;
-    if(macd && r.MACD状态 !== macd) return false;
+    if(sector && r.所属板块 !== sector) return false;
     if(rsi && r.RSI区间 !== rsi) return false;
     return true;
   });
@@ -543,6 +542,18 @@ function renderTable(){
         for(let i=0;i<5;i++) dots += `<span class="${i<val?'on':''}"></span>`;
         return `<td><div class="dots">${dots}</div></td>`;
       }
+      if(c.score100){
+        if(val==null) return `<td>-</td>`;
+        const barColor = val>=70?'var(--up)':(val<=30?'var(--down)':'var(--gold)');
+        return `<td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:34px;">${val}</span>
+            <div style="width:60px;height:5px;background:var(--line);border-radius:3px;overflow:hidden;">
+              <div style="width:${val}%;height:100%;background:${barColor};"></div>
+            </div>
+          </div>
+        </td>`;
+      }
       return `<td>${val==null?'-':val}</td>`;
     }).join('') + '<td style="color:var(--muted);">▸</td>';
 
@@ -568,13 +579,12 @@ function toggleDetail(tr, r){
   const ma20 = r['20日均线值'], stop = r['止损参考价'];
   const pos = (v) => high>low ? ((v-low)/(high-low)*100) : 50;
 
-  const scoreFactors = [
-    {label:'均线多头排列', on: r.均线排列==='多头排列'},
-    {label:'MACD偏多(金叉/多头持续)', on: r.MACD状态==='金叉(转多)'||r.MACD状态==='多头持续'},
-    {label:'RSI处于中性区间', on: r.RSI区间==='中性'},
-    {label:'站上20日均线', on: r.是否站上20日线==='是'},
-    {label:'20日跑赢沪深300', on: r['相对沪深300强弱%(20日)']>0},
+  const subScores = [
+    {label:'趋势得分', val: r['趋势得分(0-25)'], max: 25, detail: r['评分明细_趋势']},
+    {label:'量能得分', val: r['量能得分(0-17)'], max: 17, detail: r['评分明细_量能']},
+    {label:'板块得分', val: r['板块得分(0-12)'], max: 12, detail: r['评分明细_板块']},
   ];
+  const riskDetail = r['评分明细_风险'];
 
   td.innerHTML = `
     <div class="detail">
@@ -595,16 +605,26 @@ function toggleDetail(tr, r){
           <div><span class="k">量能比</span><span class="v">${r['量能比(5日/前20日)']??'-'}</span></div>
           <div><span class="k">ATR止损参考幅度</span><span class="v">${r['ATR止损参考幅度%']??'-'}%</span></div>
           <div><span class="k">60日涨跌幅</span><span class="v">${r['60日涨跌幅%']??'-'}%</span></div>
-          <div><span class="k">最新日期</span><span class="v">${r['最新日期']??'-'}</span></div>
+          <div><span class="k">板块当日涨跌幅</span><span class="v">${r['板块当日涨跌幅%']??'-'}%</span></div>
         </div>
       </div>
       <div>
-        <h3>综合评分构成</h3>
+        <h3>综合评分构成（${r['综合评分(0-100)']??'-'} / 100）</h3>
         <div class="score-detail">
-          ${scoreFactors.map(f=>`
-            <div class="score-item ${f.on?'on':''}">
-              <span class="chip"></span><span>${f.label}</span>
+          ${subScores.map(s=>`
+            <div style="margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:4px;">
+                <span>${s.label}</span><span style="font-family:'IBM Plex Mono',monospace;">${s.val??0} / ${s.max}</span>
+              </div>
+              <div style="height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:5px;">
+                <div style="width:${s.max?(s.val/s.max*100):0}%;height:100%;background:var(--gold);"></div>
+              </div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.5;">${s.detail??'-'}</div>
             </div>`).join('')}
+          <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);">
+            <div style="font-size:12.5px;color:var(--warn);margin-bottom:4px;">风险扣分：${r['风险扣分']??0}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;">${riskDetail??'-'}</div>
+          </div>
         </div>
       </div>
     </div>
