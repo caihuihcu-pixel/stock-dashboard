@@ -30,6 +30,15 @@ jobs:
       - name: 抓取历史行情数据
         run: python fetch_history.py
 
+      - name: 抓取板块数据(只在周一跑，板块归属不常变，节省资源)
+        continue-on-error: true   # 板块数据源如果临时访问不了，不影响其他数据正常更新
+        run: |
+          if [ "$(date -u +%u)" = "1" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python fetch_sector.py
+          else
+            echo "今天不是周一，跳过板块数据抓取(用之前已经抓好的数据)"
+          fi
+
       - name: 计算技术指标并生成报表
         run: python analyze_history.py
 
@@ -37,6 +46,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add history_data 选股数据.json 分析报表.xlsx
+          git add history_data sector_data 选股数据.json 分析报表.xlsx
           git diff --cached --quiet && echo "数据没有变化，跳过提交" || git commit -m "自动更新股票数据 $(date +'%Y-%m-%d %H:%M')"
           git push
