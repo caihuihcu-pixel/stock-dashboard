@@ -432,11 +432,15 @@ def prepare_ranked(result_df: pd.DataFrame) -> pd.DataFrame:
 def export_json(result_df: pd.DataFrame, json_path: str):
     """导出给网页版仪表盘用的JSON数据文件"""
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone, timedelta
 
+    beijing_now = datetime.now(timezone(timedelta(hours=8)))
     records = json.loads(result_df.to_json(orient="records", force_ascii=False))
+    latest_trade_dates = [r.get("最新日期") for r in records if r.get("最新日期")]
+    data_trade_date = max(latest_trade_dates) if latest_trade_dates else None
     payload = {
-        "生成时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "生成时间": beijing_now.strftime("%Y-%m-%d %H:%M:%S") + "(北京时间)",
+        "数据对应交易日": data_trade_date,
         "股票数量": len(records),
         "数据": records,
     }

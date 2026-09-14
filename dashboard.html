@@ -380,7 +380,7 @@ let RAW = [];
 function applyPayload(payload){
   RAW = payload.数据 || [];
   document.getElementById('metaBox').innerHTML =
-    `更新时间 <span class="dot">·</span> ${payload.生成时间}<br>股票数量 <span class="dot">·</span> ${payload.股票数量}`;
+    `更新时间 <span class="dot">·</span> ${payload.生成时间}<br>数据交易日 <span class="dot">·</span> ${payload.数据对应交易日 || '-'}<br>股票数量 <span class="dot">·</span> ${payload.股票数量}`;
   document.getElementById('loaderBox').style.display = 'none';
   document.getElementById('autoLoadingBox').style.display = 'none';
   document.getElementById('mainBox').style.display = 'block';
