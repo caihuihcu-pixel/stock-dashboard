@@ -1,0 +1,41 @@
+name: 早盘竞价数据更新
+
+# 触发条件：
+# 1. 每个工作日北京时间9:25自动运行一次(集合竞价结束时间点)
+# 2. 也支持在GitHub网页上手动点击运行，方便测试
+#
+# 提醒：GitHub Actions的定时任务不保证分秒不差，官方说明高峰期可能延迟几分钟，
+# 属于正常现象，不代表配置有问题。
+on:
+  schedule:
+    - cron: '25 1 * * 1-5'   # UTC时间1:25 = 北京时间9:25，周一到周五
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-auction:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 配置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖库
+        run: pip install -r requirements.txt
+
+      - name: 抓取竞价数据
+        run: python fetch_auction.py
+
+      - name: 提交竞价数据
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add auction_data
+          git diff --cached --quiet && echo "数据没有变化，跳过提交" || git commit -m "自动更新竞价数据 $(date +'%Y-%m-%d %H:%M')"
+          git push
